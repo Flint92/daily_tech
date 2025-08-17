@@ -7,14 +7,14 @@ use std::io::{Write, stdout};
 
 #[derive(Copy, Clone)]
 pub struct Size {
-    pub height: u16,
-    pub width: u16,
+    pub height: usize,
+    pub width: usize,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct Position {
-    pub x: u16,
-    pub y: u16,
+    pub col: usize,
+    pub row: usize,
 }
 
 pub struct Terminal;
@@ -28,7 +28,7 @@ impl Terminal {
     pub fn initialize() -> Result<(), std::io::Error> {
         enable_raw_mode()?;
         Self::clear_screen()?;
-        Self::move_cursor_to(Position { x: 0, y: 0 })?;
+        Self::move_caret_to(Position { col: 0, row: 0 })?;
         Self::execute()?;
         Ok(())
     }
@@ -41,26 +41,30 @@ impl Terminal {
         Self::queue_command(Clear(ClearType::CurrentLine))
     }
 
-    pub fn hide_cursor() -> Result<(), std::io::Error> {
+    pub fn hide_caret() -> Result<(), std::io::Error> {
         Self::queue_command(Hide)
     }
 
-    pub fn show_cursor() -> Result<(), std::io::Error> {
+    pub fn show_caret() -> Result<(), std::io::Error> {
         Self::queue_command(Show)
     }
 
-    pub fn print<T: Display>(s: T) -> Result<(), std::io::Error> {
-        Self::queue_command(Print(s))
-    }
-
-    pub fn move_cursor_to(pos: Position) -> Result<(), std::io::Error> {
-        Self::queue_command(MoveTo(pos.x, pos.y))?;
+    pub fn move_caret_to(pos: Position) -> Result<(), std::io::Error> {
+        Self::queue_command(MoveTo(pos.col as u16, pos.row as u16))?;
         Ok(())
     }
 
     pub fn size() -> Result<Size, std::io::Error> {
-        let (width, height) = size()?;
+        let (width_u16, height_u16) = size()?;
+        #[allow(clippy::as_conversions)]
+        let height = height_u16 as usize;
+        #[allow(clippy::as_conversions)]
+        let width = width_u16 as usize;
         Ok(Size { width, height })
+    }
+
+    pub fn print<T: Display>(s: T) -> Result<(), std::io::Error> {
+        Self::queue_command(Print(s))
     }
 
     pub fn execute() -> Result<(), std::io::Error> {
