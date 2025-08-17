@@ -3,6 +3,7 @@ mod terminal;
 use crossterm::event::Event::Key;
 use crossterm::event::KeyCode::Char;
 use crossterm::event::{Event, KeyEvent, KeyModifiers, read};
+use crate::editor::terminal::{Position, Size};
 
 pub struct Editor {
     should_quit: bool,
@@ -34,13 +35,14 @@ impl Editor {
     }
 
     fn draw_rows() -> Result<(), std::io::Error> {
-        let height = terminal::Terminal::size()?.1;
+        let Size{height, ..} = terminal::Terminal::size()?;
 
         for curr_row in 0..height {
-            print!("~");
+            terminal::Terminal::clear_curr_line()?;
+            terminal::Terminal::print("~")?;
 
             if curr_row + 1 < height {
-                print!("\r\n");
+                terminal::Terminal::print("\r\n")?;
             }
         }
 
@@ -65,13 +67,16 @@ impl Editor {
     }
 
     fn refresh_screen(&mut self) -> Result<(), std::io::Error> {
+        terminal::Terminal::hide_cursor()?;
         if self.should_quit {
             terminal::Terminal::clear_screen()?;
-            print!("Goodbye.\r\n");
+            terminal::Terminal::print("Goodbye.\r\n")?;
         } else {
             Self::draw_rows()?;
-            terminal::Terminal::move_cursor_to(0, 0)?;
+            terminal::Terminal::move_cursor_to(Position { x: 0, y: 0 })?;
         }
+        terminal::Terminal::show_cursor()?;
+        terminal::Terminal::execute()?;
         Ok(())
     }
 }
