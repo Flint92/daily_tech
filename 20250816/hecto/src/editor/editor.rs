@@ -1,7 +1,5 @@
-mod terminal;
-mod view;
-
-use crate::editor::terminal::{Position, Size};
+use crate::editor::terminal::{Position, Size, Terminal};
+use crate::editor::view::View;
 use crossterm::event::Event::Key;
 use crossterm::event::KeyCode::Char;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, read};
@@ -17,13 +15,14 @@ struct Location {
 pub struct Editor {
     should_quit: bool,
     location: Location,
+    view: View,
 }
 
 impl Editor {
     pub fn run(&mut self) {
-        terminal::Terminal::initialize().unwrap();
+        Terminal::initialize().unwrap();
         let result = self.repl();
-        terminal::Terminal::terminate().unwrap();
+        Terminal::terminate().unwrap();
         result.unwrap();
     }
 
@@ -66,7 +65,7 @@ impl Editor {
 
     fn move_point(&mut self, key_code: KeyCode) -> Result<(), std::io::Error> {
         let Location { mut x, mut y } = self.location;
-        let Size { width, height } = terminal::Terminal::size()?;
+        let Size { width, height } = Terminal::size()?;
         match key_code {
             KeyCode::Up => {
                 y = y.saturating_sub(1);
@@ -99,20 +98,20 @@ impl Editor {
     }
 
     fn refresh_screen(&mut self) -> Result<(), std::io::Error> {
-        terminal::Terminal::hide_caret()?;
-        terminal::Terminal::move_caret_to(Position::default())?;
+        Terminal::hide_caret()?;
+        Terminal::move_caret_to(Position::default())?;
         if self.should_quit {
-            terminal::Terminal::clear_screen()?;
-            terminal::Terminal::print("Goodbye.\r\n")?;
+            Terminal::clear_screen()?;
+            Terminal::print("Goodbye.\r\n")?;
         } else {
-            view::View::render()?;
-            terminal::Terminal::move_caret_to(Position {
+            self.view.render()?;
+            Terminal::move_caret_to(Position {
                 col: self.location.x,
                 row: self.location.y,
             })?;
         }
-        terminal::Terminal::show_caret()?;
-        terminal::Terminal::execute()?;
+        Terminal::show_caret()?;
+        Terminal::execute()?;
         Ok(())
     }
 }

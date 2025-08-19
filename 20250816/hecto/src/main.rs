@@ -1,6 +1,7 @@
-use crate::editor::Editor;
+use crate::editor::editor::Editor;
 
 mod editor;
+mod buf;
 
 fn main() {
     let mut editor = Editor::default();

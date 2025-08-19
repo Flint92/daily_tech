@@ -1,20 +1,26 @@
-use crate::editor::terminal;
-use crate::editor::terminal::Size;
+use crate::buf::buffer::Buffer;
+use crate::editor::terminal::{Size, Terminal};
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-pub struct View;
+#[derive(Default)]
+pub struct View {
+    pub buf: Buffer,
+}
 
 impl View {
-    pub fn render() -> Result<(), std::io::Error> {
-        let Size { height, .. } = terminal::Terminal::size()?;
+    pub fn render(&self) -> Result<(), std::io::Error> {
+        let Size { height, .. } = Terminal::size()?;
 
-        terminal::Terminal::clear_curr_line()?;
-        terminal::Terminal::print("Hello, World!\r\n")?;
+        for curr_row in 0..height {
+            Terminal::clear_curr_line()?;
 
-        for curr_row in 1..height {
-            terminal::Terminal::clear_curr_line()?;
+            if let Some(line) = self.buf.lines.get(curr_row) {
+                Terminal::print(line)?;
+                Terminal::print("\r\n")?;
+                continue;
+            }
 
             if curr_row == height / 3 {
                 Self::draw_welcome_message()?;
@@ -23,7 +29,7 @@ impl View {
             }
 
             if curr_row.saturating_add(1) < height {
-                terminal::Terminal::print("\r\n")?;
+                Terminal::print("\r\n")?;
             }
         }
 
@@ -32,18 +38,18 @@ impl View {
 
     fn draw_welcome_message() -> Result<(), std::io::Error> {
         let mut welcome_msg = format!("{NAME} editor -- version {VERSION}");
-        let width = terminal::Terminal::size()?.width as usize;
+        let width = Terminal::size()?.width;
         let len = welcome_msg.len();
         let padding = (width - len) / 2;
         let spaces = " ".repeat(padding - 1);
         welcome_msg = format!("~{spaces}{welcome_msg}");
         welcome_msg.truncate(width);
-        terminal::Terminal::print(welcome_msg)?;
+        Terminal::print(welcome_msg)?;
         Ok(())
     }
 
     fn draw_empty_row() -> Result<(), std::io::Error> {
-        terminal::Terminal::print("~")?;
+        Terminal::print("~")?;
         Ok(())
     }
 }
