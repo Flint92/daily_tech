@@ -4,12 +4,24 @@ use crate::editor::terminal::{Size, Terminal};
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[derive(Default)]
 pub struct View {
-    pub buf: Buffer,
+    buf: Buffer,
+    need_redraw: bool,
+    size: Size,
+}
+
+impl Default for View {
+    fn default() -> Self {
+        View{
+            buf: Buffer::default(),
+            need_redraw: true,
+            size: Terminal::size().unwrap_or_default(),
+        }
+    }
 }
 
 impl View {
+
     pub fn render(&self) -> Result<(), std::io::Error> {
         if self.buf.is_empty() {
             self.render_welcome_message()
@@ -22,6 +34,11 @@ impl View {
         if let Ok(buf) = Buffer::load(file_name) {
             self.buf = buf;
         }
+    }
+
+    pub fn resize(&mut self, to: Size) {
+        self.size = to;
+        self.need_redraw = true;
     }
 
     fn render_welcome_message(&self) -> Result<(), std::io::Error> {
