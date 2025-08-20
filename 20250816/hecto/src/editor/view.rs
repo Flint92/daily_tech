@@ -52,12 +52,12 @@ impl View {
 
             if let Some(line) = self.buf.lines.get(curr_row) {
                 Terminal::print(line)?;
-                Terminal::print("\r\n")?;
             } else {
                 Self::draw_empty_row()?;
-                if curr_row.saturating_add(1) < height {
-                    Terminal::print("\r\n")?;
-                }
+            }
+
+            if curr_row.saturating_add(1) < height {
+                Terminal::print("\r\n")?;
             }
         }
 
