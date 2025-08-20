@@ -11,16 +11,24 @@ pub struct View {
 
 impl View {
     pub fn render(&self) -> Result<(), std::io::Error> {
+        if self.buf.is_empty() {
+            self.render_welcome_message()
+        } else {
+            self.render_buf()
+        }
+    }
+
+    pub fn load(&mut self, file_name: &str) {
+        if let Ok(buf) = Buffer::load(file_name) {
+            self.buf = buf;
+        }
+    }
+
+    fn render_welcome_message(&self) -> Result<(), std::io::Error> {
         let Size { height, .. } = Terminal::size()?;
 
         for curr_row in 0..height {
             Terminal::clear_curr_line()?;
-
-            if let Some(line) = self.buf.lines.get(curr_row) {
-                Terminal::print(line)?;
-                Terminal::print("\r\n")?;
-                continue;
-            }
 
             if curr_row == height / 3 {
                 Self::draw_welcome_message()?;
@@ -30,6 +38,23 @@ impl View {
 
             if curr_row.saturating_add(1) < height {
                 Terminal::print("\r\n")?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn render_buf(&self) -> Result<(), std::io::Error> {
+        let Size { height, .. } = Terminal::size()?;
+
+        for curr_row in 0..height {
+            Terminal::clear_curr_line()?;
+
+            if let Some(line) = self.buf.lines.get(curr_row) {
+                Terminal::print(line)?;
+                Terminal::print("\r\n")?;
+            } else {
+                Self::draw_empty_row()?;
             }
         }
 
