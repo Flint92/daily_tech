@@ -1,6 +1,5 @@
 use crate::editor::terminal::{Position, Size, Terminal};
 use crate::editor::view::View;
-use crossterm::event::Event::Key;
 use crossterm::event::KeyCode::Char;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, read};
 use std::cmp::min;
@@ -48,26 +47,35 @@ impl Editor {
     }
 
     fn execute_event(&mut self, event: Event) -> Result<(), std::io::Error> {
-        if let Key(KeyEvent {
-            code,
-            modifiers,
-            kind: KeyEventKind::Press,
-            ..
-        }) = event
-        {
-            match code {
-                Char('q') if modifiers == KeyModifiers::CONTROL => self.should_quit = true,
-                KeyCode::Up
-                | KeyCode::Down
-                | KeyCode::Left
-                | KeyCode::Right
-                | KeyCode::PageUp
-                | KeyCode::PageDown
-                | KeyCode::End
-                | KeyCode::Home => self.move_point(code)?,
-                _ => (),
+        match event {
+            Event::Key(KeyEvent {
+                code,
+                modifiers,
+                kind: KeyEventKind::Press,
+                ..
+            }) => match (code, modifiers) {
+                (Char('q'), KeyModifiers::CONTROL) => self.should_quit = true,
+                (
+                    KeyCode::Up
+                    | KeyCode::Down
+                    | KeyCode::Left
+                    | KeyCode::Right
+                    | KeyCode::PageUp
+                    | KeyCode::PageDown
+                    | KeyCode::End
+                    | KeyCode::Home,
+                    _,
+                ) => self.move_point(code)?,
+                _ => {}
+            },
+            Event::Resize(width, height) => {
+                let height = height as usize;
+                let width = width as usize;
+                self.view.resize(Size { height, width });
             }
+            _ => {},
         }
+
         Ok(())
     }
 

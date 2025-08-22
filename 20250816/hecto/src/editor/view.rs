@@ -1,5 +1,5 @@
 use crate::buf::buffer::Buffer;
-use crate::editor::terminal::{Size, Terminal};
+use crate::editor::terminal::{Position, Size, Terminal};
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -12,7 +12,7 @@ pub struct View {
 
 impl Default for View {
     fn default() -> Self {
-        View{
+        View {
             buf: Buffer::default(),
             need_redraw: true,
             size: Terminal::size().unwrap_or_default(),
@@ -21,18 +21,42 @@ impl Default for View {
 }
 
 impl View {
-
-    pub fn render(&self) -> Result<(), std::io::Error> {
-        if self.buf.is_empty() {
-            self.render_welcome_message()
-        } else {
-            self.render_buf()
+    pub fn render(&mut self) -> Result<(), std::io::Error> {
+        if !self.need_redraw {
+            return Ok(());
         }
+
+        let Size { width, height } = self.size;
+        if width == 0 || height == 0 {
+            return Ok(());
+        }
+
+        let vertical_center = height / 3;
+
+        for curr_row in 0..height {
+            if let Some(line) = self.buf.lines.get(curr_row) {
+                let truncated_line = if line.len() >= width {
+                    &line[0..width]
+                } else {
+                    line
+                };
+                Self::render_line(curr_row, truncated_line)?;
+            } else if curr_row == vertical_center && self.buf.is_empty() {
+                Self::render_line(curr_row, &Self::render_welcome_message(width))?;
+            } else {
+                Self::render_line(curr_row, "~")?;
+            }
+        }
+
+        self.need_redraw = false;
+
+        Ok(())
     }
 
     pub fn load(&mut self, file_name: &str) {
         if let Ok(buf) = Buffer::load(file_name) {
             self.buf = buf;
+            self.need_redraw = true;
         }
     }
 
@@ -41,60 +65,31 @@ impl View {
         self.need_redraw = true;
     }
 
-    fn render_welcome_message(&self) -> Result<(), std::io::Error> {
-        let Size { height, .. } = Terminal::size()?;
-
-        for curr_row in 0..height {
-            Terminal::clear_curr_line()?;
-
-            if curr_row == height / 3 {
-                Self::draw_welcome_message()?;
-            } else {
-                Self::draw_empty_row()?;
-            }
-
-            if curr_row.saturating_add(1) < height {
-                Terminal::print("\r\n")?;
-            }
-        }
-
+    fn render_line(at: usize, line_text: &str) -> Result<(), std::io::Error> {
+        Terminal::move_caret_to(Position { row: at, col: 0 })?;
+        Terminal::clear_curr_line()?;
+        Terminal::print(line_text)?;
         Ok(())
     }
 
-    fn render_buf(&self) -> Result<(), std::io::Error> {
-        let Size { height, .. } = Terminal::size()?;
-
-        for curr_row in 0..height {
-            Terminal::clear_curr_line()?;
-
-            if let Some(line) = self.buf.lines.get(curr_row) {
-                Terminal::print(line)?;
-            } else {
-                Self::draw_empty_row()?;
-            }
-
-            if curr_row.saturating_add(1) < height {
-                Terminal::print("\r\n")?;
-            }
+    fn render_welcome_message(width: usize) -> String {
+        if width == 0 {
+            return " ".to_string();
         }
 
-        Ok(())
-    }
-
-    fn draw_welcome_message() -> Result<(), std::io::Error> {
-        let mut welcome_msg = format!("{NAME} editor -- version {VERSION}");
-        let width = Terminal::size()?.width;
+        let welcome_msg = format!("{NAME} editor -- version {VERSION}");
         let len = welcome_msg.len();
-        let padding = (width - len) / 2;
-        let spaces = " ".repeat(padding - 1);
-        welcome_msg = format!("~{spaces}{welcome_msg}");
-        welcome_msg.truncate(width);
-        Terminal::print(welcome_msg)?;
-        Ok(())
-    }
 
-    fn draw_empty_row() -> Result<(), std::io::Error> {
-        Terminal::print("~")?;
-        Ok(())
+        if width <= len {
+            return "~".to_string();
+        }
+
+        let padding = (width.saturating_sub(len).saturating_sub(1)) / 20;
+        let padding_str = " ".repeat(padding);
+
+        let mut full_msg = format!("~{padding_str}{welcome_msg}");
+
+        full_msg.truncate(width);
+        full_msg
     }
 }
