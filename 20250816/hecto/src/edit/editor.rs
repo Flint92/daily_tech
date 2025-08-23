@@ -1,5 +1,5 @@
-use crate::editor::terminal::{Position, Size, Terminal};
-use crate::editor::view::View;
+use crate::edit::terminal::{Position, Size, Terminal};
+use crate::edit::view::View;
 use crossterm::event::KeyCode::Char;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, read};
 use std::cmp::min;

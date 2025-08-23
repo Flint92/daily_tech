@@ -1,6 +1,6 @@
-use crate::editor::editor::Editor;
+use crate::edit::editor::Editor;
 
-mod editor;
+mod edit;
 mod buf;
 
 fn main() {

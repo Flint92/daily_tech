@@ -1,5 +1,5 @@
 use crate::buf::buffer::Buffer;
-use crate::editor::terminal::{Position, Size, Terminal};
+use crate::edit::terminal::{Position, Size, Terminal};
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -77,7 +77,7 @@ impl View {
             return " ".to_string();
         }
 
-        let welcome_msg = format!("{NAME} editor -- version {VERSION}");
+        let welcome_msg = format!("{NAME} edit -- version {VERSION}");
         let len = welcome_msg.len();
 
         if width <= len {
