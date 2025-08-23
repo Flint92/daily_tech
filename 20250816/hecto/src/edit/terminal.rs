@@ -1,6 +1,6 @@
 use crossterm::cursor::{Hide, MoveTo, Show};
 use crossterm::style::Print;
-use crossterm::terminal::{Clear, ClearType, disable_raw_mode, enable_raw_mode, size};
+use crossterm::terminal::{Clear, ClearType, disable_raw_mode, enable_raw_mode, size, EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::{Command, queue};
 use std::fmt::Display;
 use std::io::{Write, stdout};
@@ -21,12 +21,16 @@ pub struct Terminal;
 
 impl Terminal {
     pub fn terminate() -> Result<(), std::io::Error> {
+        Self::leave_alternate_screen()?;
+        Self::show_caret()?;
         Self::execute()?;
         disable_raw_mode()?;
         Ok(())
     }
+
     pub fn initialize() -> Result<(), std::io::Error> {
         enable_raw_mode()?;
+        Self::enter_alternate_screen()?;
         Self::clear_screen()?;
         Self::move_caret_to(Position { col: 0, row: 0 })?;
         Self::execute()?;
@@ -54,6 +58,15 @@ impl Terminal {
         Ok(())
     }
 
+    pub fn enter_alternate_screen() -> Result<(), std::io::Error> {
+        Self::queue_command(EnterAlternateScreen)?;
+        Ok(())
+    }
+    pub fn leave_alternate_screen() -> Result<(), std::io::Error> {
+        Self::queue_command(LeaveAlternateScreen)?;
+        Ok(())
+    }
+
     pub fn size() -> Result<Size, std::io::Error> {
         let (width_u16, height_u16) = size()?;
         #[allow(clippy::as_conversions)]
@@ -65,6 +78,13 @@ impl Terminal {
 
     pub fn print<T: Display>(s: T) -> Result<(), std::io::Error> {
         Self::queue_command(Print(s))
+    }
+
+    pub fn print_row(at: usize, line_text: &str) -> Result<(), std::io::Error> {
+        Terminal::move_caret_to(Position { row: at, col: 0 })?;
+        Terminal::clear_curr_line()?;
+        Terminal::print(line_text)?;
+        Ok(())
     }
 
     pub fn execute() -> Result<(), std::io::Error> {

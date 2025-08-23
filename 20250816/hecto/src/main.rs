@@ -4,6 +4,6 @@ mod edit;
 mod buf;
 
 fn main() {
-    let mut editor = Editor::default();
+    let mut editor = Editor::new().unwrap_or_default();
     editor.run();
 }

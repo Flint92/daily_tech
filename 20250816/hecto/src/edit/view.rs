@@ -1,5 +1,5 @@
 use crate::buf::buffer::Buffer;
-use crate::edit::terminal::{Position, Size, Terminal};
+use crate::edit::terminal::{Size, Terminal};
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -21,14 +21,14 @@ impl Default for View {
 }
 
 impl View {
-    pub fn render(&mut self) -> Result<(), std::io::Error> {
+    pub fn render(&mut self) {
         if !self.need_redraw {
-            return Ok(());
+            return;
         }
 
         let Size { width, height } = self.size;
         if width == 0 || height == 0 {
-            return Ok(());
+            return;
         }
 
         let vertical_center = height / 3;
@@ -40,17 +40,15 @@ impl View {
                 } else {
                     line
                 };
-                Self::render_line(curr_row, truncated_line)?;
+                Self::render_line(curr_row, truncated_line);
             } else if curr_row == vertical_center && self.buf.is_empty() {
-                Self::render_line(curr_row, &Self::render_welcome_message(width))?;
+                Self::render_line(curr_row, &Self::render_welcome_message(width));
             } else {
-                Self::render_line(curr_row, "~")?;
+                Self::render_line(curr_row, "~");
             }
         }
 
         self.need_redraw = false;
-
-        Ok(())
     }
 
     pub fn load(&mut self, file_name: &str) {
@@ -65,11 +63,9 @@ impl View {
         self.need_redraw = true;
     }
 
-    fn render_line(at: usize, line_text: &str) -> Result<(), std::io::Error> {
-        Terminal::move_caret_to(Position { row: at, col: 0 })?;
-        Terminal::clear_curr_line()?;
-        Terminal::print(line_text)?;
-        Ok(())
+    fn render_line(at: usize, line_text: &str) {
+        let result = Terminal::print_row(at, line_text);
+        debug_assert!(result.is_ok(), "failed to render line");
     }
 
     fn render_welcome_message(width: usize) -> String {

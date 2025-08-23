@@ -3,6 +3,8 @@ use crate::edit::view::View;
 use crossterm::event::KeyCode::Char;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, read};
 use std::cmp::min;
+use std::io::Error;
+use std::panic::{set_hook, take_hook};
 
 #[derive(Clone, Copy, Default)]
 struct Location {
@@ -18,35 +20,43 @@ pub struct Editor {
 }
 
 impl Editor {
-    pub fn run(&mut self) {
-        Terminal::initialize().unwrap();
-        self.handle_args();
-        let result = self.repl();
-        Terminal::terminate().unwrap();
-        result.unwrap();
-    }
-
-    fn handle_args(&mut self) {
+    pub fn new() -> Result<Self, Error> {
+        let curr_hook = take_hook();
+        set_hook(Box::new(move |panic_info| {
+            let _ = Terminal::terminate();
+            curr_hook(panic_info);
+        }));
+        Terminal::initialize()?;
+        let mut view = View::default();
         let args: Vec<String> = std::env::args().collect();
         if let Some(filename) = args.get(1) {
-            self.view.load(filename);
+            view.load(filename);
         }
+
+        Ok(Self {
+            should_quit: false,
+            location: Location::default(),
+            view,
+        })
     }
 
-    fn repl(&mut self) -> Result<(), std::io::Error> {
+    pub fn run(&mut self) {
         loop {
-            self.refresh_screen()?;
+            self.refresh_screen();
             if self.should_quit {
                 break;
             }
-            let event = read()?;
-            self.execute_event(event)?;
-        }
 
-        Ok(())
+            match read() {
+                Ok(event) => self.execute_event(event),
+                Err(err) => {
+                    panic!("Could not read event {err:?}");
+                }
+            }
+        }
     }
 
-    fn execute_event(&mut self, event: Event) -> Result<(), std::io::Error> {
+    fn execute_event(&mut self, event: Event) {
         match event {
             Event::Key(KeyEvent {
                 code,
@@ -65,7 +75,7 @@ impl Editor {
                     | KeyCode::End
                     | KeyCode::Home,
                     _,
-                ) => self.move_point(code)?,
+                ) => self.move_point(code),
                 _ => {}
             },
             Event::Resize(width, height) => {
@@ -73,15 +83,13 @@ impl Editor {
                 let width = width as usize;
                 self.view.resize(Size { height, width });
             }
-            _ => {},
+            _ => {}
         }
-
-        Ok(())
     }
 
-    fn move_point(&mut self, key_code: KeyCode) -> Result<(), std::io::Error> {
+    fn move_point(&mut self, key_code: KeyCode) {
         let Location { mut x, mut y } = self.location;
-        let Size { width, height } = Terminal::size()?;
+        let Size { width, height } = Terminal::size().unwrap_or_default();
         match key_code {
             KeyCode::Up => {
                 y = y.saturating_sub(1);
@@ -110,24 +118,25 @@ impl Editor {
             _ => (),
         }
         self.location = Location { x, y };
-        Ok(())
     }
 
-    fn refresh_screen(&mut self) -> Result<(), std::io::Error> {
-        Terminal::hide_caret()?;
-        Terminal::move_caret_to(Position::default())?;
+    fn refresh_screen(&mut self) {
+        let _ = Terminal::hide_caret();
+        self.view.render();
+        let _ = Terminal::move_caret_to(Position {
+            col: self.location.x,
+            row: self.location.y,
+        });
+        let _ = Terminal::show_caret();
+        let _ = Terminal::execute();
+    }
+}
+
+impl Drop for Editor {
+    fn drop(&mut self) {
+        let _ = Terminal::terminate();
         if self.should_quit {
-            Terminal::clear_screen()?;
-            Terminal::print("Goodbye.\r\n")?;
-        } else {
-            self.view.render()?;
-            Terminal::move_caret_to(Position {
-                col: self.location.x,
-                row: self.location.y,
-            })?;
+            let _ = Terminal::print("Goodbye.\r\n");
         }
-        Terminal::show_caret()?;
-        Terminal::execute()?;
-        Ok(())
     }
 }
