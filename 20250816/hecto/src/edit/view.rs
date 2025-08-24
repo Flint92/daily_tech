@@ -1,7 +1,9 @@
 use crate::buf::buffer::Buffer;
 use crate::edit::command::{Direction, EditorCommand};
+use crate::edit::line::Line;
 use crate::edit::location::Location;
 use crate::edit::terminal::{Position, Size, Terminal};
+use std::cmp;
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -82,18 +84,43 @@ impl View {
 
     fn move_text_location(&mut self, direction: &Direction) {
         let Location { mut x, mut y } = self.location;
-        let Size { height, width } = self.size;
+        let Size { height, .. } = self.size;
 
         match direction {
             Direction::Up => y = y.saturating_sub(1),
             Direction::Down => y = y.saturating_add(1),
-            Direction::Left => x = x.saturating_sub(1),
-            Direction::Right => x = x.saturating_add(1),
-            Direction::PageUp => y = 0,
-            Direction::PageDown => y = height.saturating_sub(1),
+            Direction::Left => {
+                if x > 0 {
+                    x = x.saturating_sub(1);
+                } else if y > 0 {
+                    y = y.saturating_sub(1);
+                    x = self.buf.lines.get(y).map_or(0, Line::len);
+                }
+            }
+            Direction::Right => {
+                let width = self.buf.lines.get(y).map_or(0, Line::len);
+                if x < width {
+                    x = x.saturating_add(1);
+                } else {
+                    y = y.saturating_add(1);
+                    x = 0;
+                }
+            }
+            Direction::PageUp => y = y.saturating_sub(height).saturating_sub(1),
+            Direction::PageDown => y = y.saturating_add(height).saturating_sub(1),
             Direction::Home => x = 0,
-            Direction::End => x = width.saturating_sub(1),
+            Direction::End => x = self.buf.lines.get(y).map_or(0, Line::len),
         }
+
+        // snap x to valid location
+        x = self
+            .buf
+            .lines
+            .get(y)
+            .map_or(0, |line| cmp::min(line.len(), x));
+
+        // snap y to valid location
+        y = cmp::min(y, self.buf.lines.len());
 
         self.location = Location { x, y };
         self.scroll_location_into_view();
