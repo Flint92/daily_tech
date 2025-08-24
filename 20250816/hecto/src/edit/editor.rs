@@ -1,21 +1,14 @@
-use crate::edit::terminal::{Position, Size, Terminal};
+use crate::edit::command::EditorCommand;
+use crate::edit::terminal::Terminal;
 use crate::edit::view::View;
-use crossterm::event::KeyCode::Char;
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, read};
-use std::cmp::min;
+use crossterm::event::{read, Event, KeyEvent, KeyEventKind};
 use std::io::Error;
 use std::panic::{set_hook, take_hook};
 
-#[derive(Clone, Copy, Default)]
-struct Location {
-    x: usize,
-    y: usize,
-}
 
 #[derive(Default)]
 pub struct Editor {
     should_quit: bool,
-    location: Location,
     view: View,
 }
 
@@ -35,7 +28,6 @@ impl Editor {
 
         Ok(Self {
             should_quit: false,
-            location: Location::default(),
             view,
         })
     }
@@ -57,76 +49,34 @@ impl Editor {
     }
 
     fn execute_event(&mut self, event: Event) {
-        match event {
-            Event::Key(KeyEvent {
-                code,
-                modifiers,
-                kind: KeyEventKind::Press,
-                ..
-            }) => match (code, modifiers) {
-                (Char('q'), KeyModifiers::CONTROL) => self.should_quit = true,
-                (
-                    KeyCode::Up
-                    | KeyCode::Down
-                    | KeyCode::Left
-                    | KeyCode::Right
-                    | KeyCode::PageUp
-                    | KeyCode::PageDown
-                    | KeyCode::End
-                    | KeyCode::Home,
-                    _,
-                ) => self.move_point(code),
-                _ => {}
-            },
-            Event::Resize(width, height) => {
-                let height = height as usize;
-                let width = width as usize;
-                self.view.resize(Size { height, width });
-            }
-            _ => {}
-        }
-    }
+        let should_process = match &event {
+            Event::Key(KeyEvent { kind, .. }) => kind == &KeyEventKind::Press,
+            Event::Resize(_, _) => true,
+            _ => false,
+        };
 
-    fn move_point(&mut self, key_code: KeyCode) {
-        let Location { mut x, mut y } = self.location;
-        let Size { width, height } = Terminal::size().unwrap_or_default();
-        match key_code {
-            KeyCode::Up => {
-                y = y.saturating_sub(1);
+        if should_process {
+            match EditorCommand::try_from(event) {
+                Ok(command) => {
+                    if matches!(command, EditorCommand::Quit) {
+                        self.should_quit = true;
+                    } else {
+                        self.view.handle_command(command);
+                    }
+                }
+                Err(e) => {
+                    panic!("Could not parse command: {e:?}");
+                }
             }
-            KeyCode::Down => {
-                y = min(height.saturating_sub(1), y.saturating_add(1));
-            }
-            KeyCode::Left => {
-                x = x.saturating_sub(1);
-            }
-            KeyCode::Right => {
-                x = min(width.saturating_sub(1), x.saturating_add(1));
-            }
-            KeyCode::PageUp => {
-                y = 0;
-            }
-            KeyCode::PageDown => {
-                y = height.saturating_sub(1);
-            }
-            KeyCode::Home => {
-                x = 0;
-            }
-            KeyCode::End => {
-                x = width.saturating_sub(1);
-            }
-            _ => (),
+        } else {
+            panic!("Received and discarded unsupported or non-press event.");
         }
-        self.location = Location { x, y };
     }
 
     fn refresh_screen(&mut self) {
         let _ = Terminal::hide_caret();
         self.view.render();
-        let _ = Terminal::move_caret_to(Position {
-            col: self.location.x,
-            row: self.location.y,
-        });
+        let _ = Terminal::move_caret_to(self.view.get_position());
         let _ = Terminal::show_caret();
         let _ = Terminal::execute();
     }
