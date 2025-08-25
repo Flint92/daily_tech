@@ -4,7 +4,6 @@ use crossterm::terminal::{Clear, ClearType, disable_raw_mode, enable_raw_mode, s
 use crossterm::{Command, queue};
 use std::fmt::Display;
 use std::io::{Write, stdout};
-use crate::edit::location::Location;
 
 #[derive(Copy, Clone, Default)]
 pub struct Size {
@@ -18,12 +17,11 @@ pub struct Position {
     pub row: usize,
 }
 
-
-impl From<Location> for Position {
-    fn from(location: Location) -> Self {
-        Position {
-            col: location.x,
-            row: location.y,
+impl Position {
+    pub const fn saturating_sub(self, other: Self) -> Self {
+        Self {
+            col: self.col.saturating_sub(other.col),
+            row: self.row.saturating_sub(other.row),
         }
     }
 }

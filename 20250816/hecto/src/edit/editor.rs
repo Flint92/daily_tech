@@ -1,10 +1,9 @@
 use crate::edit::command::EditorCommand;
 use crate::edit::terminal::Terminal;
 use crate::edit::view::View;
-use crossterm::event::{read, Event, KeyEvent, KeyEventKind};
+use crossterm::event::{Event, KeyEvent, KeyEventKind, read};
 use std::io::Error;
 use std::panic::{set_hook, take_hook};
-
 
 #[derive(Default)]
 pub struct Editor {
@@ -76,7 +75,7 @@ impl Editor {
     fn refresh_screen(&mut self) {
         let _ = Terminal::hide_caret();
         self.view.render();
-        let _ = Terminal::move_caret_to(self.view.get_position());
+        let _ = Terminal::move_caret_to(self.view.caret_position());
         let _ = Terminal::show_caret();
         let _ = Terminal::execute();
     }
