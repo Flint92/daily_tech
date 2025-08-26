@@ -1,4 +1,5 @@
 use crate::edit::line::Line;
+use crate::edit::view::Location;
 
 #[derive(Default)]
 pub struct Buffer {
@@ -10,6 +11,17 @@ impl Buffer {
         let contents = std::fs::read_to_string(file_name)?;
         let lines = contents.lines().map(|line| Line::from(line)).collect();
         Ok(Self { lines })
+    }
+
+    pub fn insert_char(&mut self, ch: char, at: Location) {
+        if at.line_index > self.height() {
+            return;
+        }
+        if at.line_index == self.height() {
+            self.lines.push(Line::from(&ch.to_string()));
+        } else if let Some(line) = self.lines.get_mut(at.line_index) {
+            line.insert_char(ch, at.grapheme_index);
+        }
     }
 
     pub fn is_empty(&self) -> bool {

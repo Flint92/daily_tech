@@ -16,6 +16,7 @@ pub enum EditorCommand {
     Move(Direction),
     Resize(Size),
     Quit,
+    Insert(char),
 }
 
 impl TryFrom<Event> for EditorCommand {
@@ -27,6 +28,9 @@ impl TryFrom<Event> for EditorCommand {
                 code, modifiers, ..
             }) => match (code, modifiers) {
                 (KeyCode::Char('q'), KeyModifiers::CONTROL) => Ok(Self::Quit),
+                (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+                    Ok(EditorCommand::Insert(c))
+                }
                 (KeyCode::Up, _) => Ok(EditorCommand::Move(Direction::Up)),
                 (KeyCode::Down, _) => Ok(EditorCommand::Move(Direction::Down)),
                 (KeyCode::Left, _) => Ok(EditorCommand::Move(Direction::Left)),

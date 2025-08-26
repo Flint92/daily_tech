@@ -66,7 +66,8 @@ impl View {
         match command {
             EditorCommand::Move(direction) => self.move_text_location(&direction),
             EditorCommand::Resize(size) => self.resize(size),
-            EditorCommand::Quit => {}
+            EditorCommand::Quit => {},
+            EditorCommand::Insert(c) => self.insert_char(c),
         }
     }
 
@@ -83,6 +84,26 @@ impl View {
         self.need_redraw = true;
     }
 
+    fn insert_char(&mut self, character: char) {
+        let old_len = self
+            .buf
+            .lines
+            .get(self.text_location.line_index)
+            .map_or(0, Line::grapheme_count);
+        self.buf.insert_char(character, self.text_location);
+        let new_len = self
+            .buf
+            .lines
+            .get(self.text_location.line_index)
+            .map_or(0, Line::grapheme_count);
+        let grapheme_delta = new_len.saturating_sub(old_len);
+        if grapheme_delta > 0 {
+            //move right for an added grapheme (should be the regular case)
+            self.move_right();
+        }
+        self.need_redraw = true;
+    }
+
     fn scroll_vertically(&mut self, to: usize) {
         let Size { height, .. } = self.size;
         let offset_changed = if to < self.scroll_offset.row {
@@ -94,7 +115,9 @@ impl View {
         } else {
             false
         };
-        self.need_redraw = self.need_redraw || offset_changed;
+        if offset_changed {
+            self.need_redraw = true;
+        }
     }
 
     fn scroll_horizontally(&mut self, to: usize) {
@@ -108,7 +131,9 @@ impl View {
         } else {
             false
         };
-        self.need_redraw = self.need_redraw || offset_changed;
+        if offset_changed {
+            self.need_redraw = true;
+        }
     }
 
     fn scroll_text_location_into_view(&mut self) {
