@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use std::ops::Range;
 
 use unicode_segmentation::UnicodeSegmentation;
@@ -25,6 +26,17 @@ struct TextFragment {
 
 pub struct Line {
     fragments: Vec<TextFragment>,
+}
+
+impl Display for Line {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let result = self
+            .fragments
+            .iter()
+            .map(|fragment| fragment.grapheme.clone())
+            .collect::<String>();
+        write!(f, "{result}")
+    }
 }
 
 impl Line {
@@ -96,6 +108,12 @@ impl Line {
 
     pub fn grapheme_count(&self) -> usize {
         self.fragments.len()
+    }
+
+    pub fn append(&mut self, other: &Self) {
+        let mut concat = self.to_string();
+        concat.push_str(other.to_string().as_str());
+        self.fragments = Self::str_to_fragments(concat.as_str());
     }
 
     fn str_to_fragments(line_str: &str) -> Vec<TextFragment> {
