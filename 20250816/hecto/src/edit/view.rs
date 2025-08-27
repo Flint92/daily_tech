@@ -66,8 +66,10 @@ impl View {
         match command {
             EditorCommand::Move(direction) => self.move_text_location(&direction),
             EditorCommand::Resize(size) => self.resize(size),
-            EditorCommand::Quit => {},
+            EditorCommand::Quit => {}
             EditorCommand::Insert(c) => self.insert_char(c),
+            EditorCommand::Backspace => self.backspace(),
+            EditorCommand::Delete => self.delete(),
         }
     }
 
@@ -172,6 +174,16 @@ impl View {
         self.scroll_text_location_into_view();
     }
 
+    fn backspace(&mut self) {
+        self.move_left();
+        self.delete()
+    }
+
+    fn delete(&mut self) {
+        self.buf.delete(self.text_location);
+        self.need_redraw = true;
+    }
+
     fn move_up(&mut self, step: usize) {
         self.text_location.line_index = self.text_location.line_index.saturating_sub(step);
         self.snap_to_valid_grapheme()
@@ -201,7 +213,7 @@ impl View {
     fn move_left(&mut self) {
         if self.text_location.grapheme_index > 0 {
             self.text_location.grapheme_index = self.text_location.grapheme_index.saturating_sub(1);
-        } else {
+        } else if self.text_location.line_index > 0 {
             self.move_up(1);
             self.move_to_end_line()
         }

@@ -48,6 +48,13 @@ impl Line {
         self.fragments = Self::str_to_fragments(&result);
     }
 
+    pub fn delete(&mut self, grapheme_index: usize) {
+        if grapheme_index >= self.fragments.len() {
+            return;
+        }
+        self.fragments.remove(grapheme_index);
+    }
+
     pub fn get_visible_graphemes(&self, range: Range<usize>) -> String {
         if range.start >= range.end {
             return String::new();

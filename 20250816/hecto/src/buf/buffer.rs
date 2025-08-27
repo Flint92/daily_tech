@@ -24,6 +24,12 @@ impl Buffer {
         }
     }
 
+    pub fn delete(&mut self, at: Location) {
+        if let Some(line) = self.lines.get_mut(at.line_index) {
+            line.delete(at.grapheme_index)
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.lines.is_empty()
     }
