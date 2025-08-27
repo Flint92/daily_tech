@@ -1,5 +1,6 @@
 use crate::edit::line::Line;
 use crate::edit::view::Location;
+use std::io::Write;
 
 #[derive(Default)]
 pub struct Buffer {
@@ -11,7 +12,7 @@ impl Buffer {
     pub fn load(file_name: &str) -> Result<Self, std::io::Error> {
         let contents = std::fs::read_to_string(file_name)?;
         let lines = contents.lines().map(|line| Line::from(line)).collect();
-        Ok(Self { 
+        Ok(Self {
             lines,
             file_name: Some(file_name.to_string()),
         })
@@ -49,11 +50,13 @@ impl Buffer {
             self.lines.insert(at.line_index.saturating_add(1), new_line);
         }
     }
-    
+
     pub fn save(&mut self) -> Result<(), std::io::Error> {
         if let Some(file_name) = self.file_name.as_deref() {
-            let contents = self.lines.iter().map(|line| line.to_string()).collect::<Vec<_>>().join("\n");
-            std::fs::write(file_name, contents)?;
+            let mut file = std::fs::File::create(file_name)?;
+            for line in &self.lines {
+                writeln!(file, "{line}")?;
+            }
         }
         Ok(())
     }
