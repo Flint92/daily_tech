@@ -70,6 +70,7 @@ impl View {
             EditorCommand::Insert(c) => self.insert_char(c),
             EditorCommand::Backspace => self.backspace(),
             EditorCommand::Delete => self.delete(),
+            EditorCommand::Enter => self.insert_newline(),
         }
     }
 
@@ -83,6 +84,12 @@ impl View {
     pub fn resize(&mut self, to: Size) {
         self.size = to;
         self.scroll_text_location_into_view();
+        self.need_redraw = true;
+    }
+    
+    fn insert_newline(&mut self) {
+        self.buf.insert_newline(self.text_location);
+        self.move_text_location(&Direction::Right);
         self.need_redraw = true;
     }
 
