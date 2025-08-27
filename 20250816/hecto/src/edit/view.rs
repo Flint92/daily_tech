@@ -71,6 +71,7 @@ impl View {
             EditorCommand::Backspace => self.backspace(),
             EditorCommand::Delete => self.delete(),
             EditorCommand::Enter => self.insert_newline(),
+            EditorCommand::Save => self.save(),
         }
     }
 
@@ -85,6 +86,10 @@ impl View {
         self.size = to;
         self.scroll_text_location_into_view();
         self.need_redraw = true;
+    }
+    
+    fn save(&mut self) {
+        let _ = self.buf.save();
     }
     
     fn insert_newline(&mut self) {

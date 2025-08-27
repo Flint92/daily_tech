@@ -4,13 +4,17 @@ use crate::edit::view::Location;
 #[derive(Default)]
 pub struct Buffer {
     pub lines: Vec<Line>,
+    file_name: Option<String>,
 }
 
 impl Buffer {
     pub fn load(file_name: &str) -> Result<Self, std::io::Error> {
         let contents = std::fs::read_to_string(file_name)?;
         let lines = contents.lines().map(|line| Line::from(line)).collect();
-        Ok(Self { lines })
+        Ok(Self { 
+            lines,
+            file_name: Some(file_name.to_string()),
+        })
     }
 
     pub fn insert_char(&mut self, ch: char, at: Location) {
@@ -44,6 +48,14 @@ impl Buffer {
             let new_line = line.split(at.grapheme_index);
             self.lines.insert(at.line_index.saturating_add(1), new_line);
         }
+    }
+    
+    pub fn save(&mut self) -> Result<(), std::io::Error> {
+        if let Some(file_name) = self.file_name.as_deref() {
+            let contents = self.lines.iter().map(|line| line.to_string()).collect::<Vec<_>>().join("\n");
+            std::fs::write(file_name, contents)?;
+        }
+        Ok(())
     }
 
     pub fn is_empty(&self) -> bool {
