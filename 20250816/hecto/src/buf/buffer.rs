@@ -1,3 +1,4 @@
+use crate::edit::fileinfo::FileInfo;
 use crate::edit::line::Line;
 use crate::edit::view::Location;
 use std::io::Write;
@@ -5,7 +6,8 @@ use std::io::Write;
 #[derive(Default)]
 pub struct Buffer {
     pub lines: Vec<Line>,
-    file_name: Option<String>,
+    pub file_info: FileInfo,
+    pub dirty: bool,
 }
 
 impl Buffer {
@@ -14,7 +16,8 @@ impl Buffer {
         let lines = contents.lines().map(|line| Line::from(line)).collect();
         Ok(Self {
             lines,
-            file_name: Some(file_name.to_string()),
+            file_info: FileInfo::from(file_name),
+            dirty: false,
         })
     }
 
@@ -24,8 +27,10 @@ impl Buffer {
         }
         if at.line_index == self.height() {
             self.lines.push(Line::from(&ch.to_string()));
+            self.dirty = true;
         } else if let Some(line) = self.lines.get_mut(at.line_index) {
             line.insert_char(ch, at.grapheme_index);
+            self.dirty = true;
         }
     }
 
@@ -36,8 +41,10 @@ impl Buffer {
             {
                 let next_line = self.lines.remove(at.line_index.saturating_add(1));
                 self.lines[at.line_index].append(&next_line);
+                self.dirty = true;
             } else {
                 self.lines[at.line_index].delete(at.grapheme_index);
+                self.dirty = true;
             }
         }
     }
@@ -45,18 +52,21 @@ impl Buffer {
     pub fn insert_newline(&mut self, at: Location) {
         if at.line_index == self.height() {
             self.lines.push(Line::default());
+            self.dirty = true;
         } else if let Some(line) = self.lines.get_mut(at.line_index) {
             let new_line = line.split(at.grapheme_index);
             self.lines.insert(at.line_index.saturating_add(1), new_line);
+            self.dirty = true;
         }
     }
 
     pub fn save(&mut self) -> Result<(), std::io::Error> {
-        if let Some(file_name) = self.file_name.as_deref() {
-            let mut file = std::fs::File::create(file_name)?;
+        if let Some(path) = &self.file_info.path {
+            let mut file = std::fs::File::create(path)?;
             for line in &self.lines {
                 writeln!(file, "{line}")?;
             }
+            self.dirty = false;
         }
         Ok(())
     }

@@ -1,6 +1,9 @@
 use crossterm::cursor::{Hide, MoveTo, Show};
-use crossterm::style::Print;
-use crossterm::terminal::{Clear, ClearType, disable_raw_mode, enable_raw_mode, size, EnterAlternateScreen, LeaveAlternateScreen};
+use crossterm::style::{Attribute, Print};
+use crossterm::terminal::{
+    Clear, ClearType, DisableLineWrap, EnableLineWrap, EnterAlternateScreen, LeaveAlternateScreen,
+    SetTitle, disable_raw_mode, enable_raw_mode, size,
+};
 use crossterm::{Command, queue};
 use std::fmt::Display;
 use std::io::{Write, stdout};
@@ -31,6 +34,7 @@ pub struct Terminal;
 impl Terminal {
     pub fn terminate() -> Result<(), std::io::Error> {
         Self::leave_alternate_screen()?;
+        Self::enable_line_wrap()?;
         Self::show_caret()?;
         Self::execute()?;
         disable_raw_mode()?;
@@ -40,9 +44,23 @@ impl Terminal {
     pub fn initialize() -> Result<(), std::io::Error> {
         enable_raw_mode()?;
         Self::enter_alternate_screen()?;
+        Self::disable_line_wrap()?;
         Self::clear_screen()?;
         Self::move_caret_to(Position { col: 0, row: 0 })?;
         Self::execute()?;
+        Ok(())
+    }
+
+    pub fn disable_line_wrap() -> Result<(), std::io::Error> {
+        Self::queue_command(DisableLineWrap)?;
+        Ok(())
+    }
+    pub fn enable_line_wrap() -> Result<(), std::io::Error> {
+        Self::queue_command(EnableLineWrap)?;
+        Ok(())
+    }
+    pub fn set_title(title: &str) -> Result<(), std::io::Error> {
+        Self::queue_command(SetTitle(title))?;
         Ok(())
     }
 
@@ -94,6 +112,19 @@ impl Terminal {
         Terminal::clear_curr_line()?;
         Terminal::print(line_text)?;
         Ok(())
+    }
+
+    pub fn print_inverted_row(row: usize, line_text: &str) -> Result<(), std::io::Error> {
+        let width = Self::size()?.width;
+        Self::print_row(
+            row,
+            &format!(
+                "{}{:width$.width$}{}",
+                Attribute::Reverse,
+                line_text,
+                Attribute::Reset
+            ),
+        )
     }
 
     pub fn execute() -> Result<(), std::io::Error> {

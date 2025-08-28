@@ -1,4 +1,6 @@
+use crate::constant::constants::NAME;
 use crate::edit::command::EditorCommand;
+use crate::edit::statusbar::Statusbar;
 use crate::edit::terminal::Terminal;
 use crate::edit::view::View;
 use crossterm::event::{Event, KeyEvent, KeyEventKind, read};
@@ -9,6 +11,8 @@ use std::panic::{set_hook, take_hook};
 pub struct Editor {
     should_quit: bool,
     view: View,
+    status_bar: Statusbar,
+    title: String,
 }
 
 impl Editor {
@@ -19,16 +23,19 @@ impl Editor {
             curr_hook(panic_info);
         }));
         Terminal::initialize()?;
-        let mut view = View::default();
+        let mut editor = Self {
+            should_quit: false,
+            view: View::new(2),
+            status_bar: Statusbar::new(1),
+            title: String::new(),
+        };
         let args: Vec<String> = std::env::args().collect();
         if let Some(filename) = args.get(1) {
-            view.load(filename);
+            editor.view.load(filename);
         }
 
-        Ok(Self {
-            should_quit: false,
-            view,
-        })
+        editor.refresh_status();
+        Ok(editor)
     }
 
     pub fn run(&mut self) {
@@ -44,6 +51,18 @@ impl Editor {
                     panic!("Could not read event {err:?}");
                 }
             }
+            let status = self.view.get_status();
+            self.status_bar.update_status(status);
+        }
+    }
+
+    pub fn refresh_status(&mut self) {
+        let status = self.view.get_status();
+        let title = format!("{} - {NAME}", status.file_name);
+        self.status_bar.update_status(status);
+
+        if title != self.title && matches!(Terminal::set_title(&title), Ok(())) {
+            self.title = title;
         }
     }
 
@@ -60,6 +79,9 @@ impl Editor {
                     self.should_quit = true;
                 } else {
                     self.view.handle_command(command);
+                    if let EditorCommand::Resize(size) = command {
+                        self.status_bar.resize(size);
+                    }
                 }
             }
         } else {
@@ -70,6 +92,7 @@ impl Editor {
     fn refresh_screen(&mut self) {
         let _ = Terminal::hide_caret();
         self.view.render();
+        self.status_bar.render();
         let _ = Terminal::move_caret_to(self.view.caret_position());
         let _ = Terminal::show_caret();
         let _ = Terminal::execute();

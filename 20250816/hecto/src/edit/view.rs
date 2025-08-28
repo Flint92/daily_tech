@@ -1,11 +1,10 @@
 use crate::buf::buffer::Buffer;
+use crate::constant::constants::{NAME, VERSION};
 use crate::edit::command::{Direction, EditorCommand};
+use crate::edit::documentation::DocumentStatus;
 use crate::edit::line::Line;
 use crate::edit::terminal::{Position, Size, Terminal};
 use std::cmp;
-
-const NAME: &str = env!("CARGO_PKG_NAME");
-const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Copy, Clone, Default)]
 pub struct Location {
@@ -13,29 +12,34 @@ pub struct Location {
     pub line_index: usize,
 }
 
+#[derive(Default)]
 pub struct View {
     buf: Buffer,
     need_redraw: bool,
     size: Size,
+    margin_bottom: usize,
     text_location: Location,
     scroll_offset: Position,
 }
 
-impl Default for View {
-    fn default() -> Self {
-        View {
+impl View {
+    pub fn new(margin_bottom: usize) -> Self {
+        let size = Terminal::size().unwrap_or_default();
+        Self {
             buf: Buffer::default(),
             need_redraw: true,
-            size: Terminal::size().unwrap_or_default(),
+            size: Size {
+                height: size.height.saturating_sub(margin_bottom),
+                width: size.width,
+            },
+            margin_bottom,
             text_location: Location::default(),
             scroll_offset: Position::default(),
         }
     }
-}
 
-impl View {
     pub fn render(&mut self) {
-        if !self.need_redraw {
+        if !self.need_redraw || self.size.height == 0 {
             return;
         }
 
@@ -64,7 +68,7 @@ impl View {
 
     pub fn handle_command(&mut self, command: EditorCommand) {
         match command {
-            EditorCommand::Move(direction) => self.move_text_location(&direction),
+            EditorCommand::Move(direction) => self.move_text_location(direction),
             EditorCommand::Resize(size) => self.resize(size),
             EditorCommand::Quit => {}
             EditorCommand::Insert(c) => self.insert_char(c),
@@ -82,19 +86,31 @@ impl View {
         }
     }
 
+    pub fn get_status(&self) -> DocumentStatus {
+        DocumentStatus {
+            total_lines: self.buf.height(),
+            current_line_index: self.text_location.line_index,
+            is_modified: self.buf.dirty,
+            file_name: format!("{}", self.buf.file_info),
+        }
+    }
+
     pub fn resize(&mut self, to: Size) {
-        self.size = to;
+        self.size = Size {
+            height: to.height.saturating_sub(self.margin_bottom),
+            width: to.width,
+        };
         self.scroll_text_location_into_view();
         self.need_redraw = true;
     }
-    
+
     fn save(&mut self) {
         let _ = self.buf.save();
     }
-    
+
     fn insert_newline(&mut self) {
         self.buf.insert_newline(self.text_location);
-        self.move_text_location(&Direction::Right);
+        self.move_text_location(Direction::Right);
         self.need_redraw = true;
     }
 
@@ -113,7 +129,7 @@ impl View {
         let grapheme_delta = new_len.saturating_sub(old_len);
         if grapheme_delta > 0 {
             //move right for an added grapheme (should be the regular case)
-            self.move_text_location(&Direction::Right);
+            self.move_text_location(Direction::Right);
         }
         self.need_redraw = true;
     }
@@ -169,7 +185,7 @@ impl View {
         Position { col, row }
     }
 
-    fn move_text_location(&mut self, direction: &Direction) {
+    fn move_text_location(&mut self, direction: Direction) {
         let Size { height, .. } = self.size;
 
         match direction {
@@ -188,7 +204,7 @@ impl View {
 
     fn backspace(&mut self) {
         if self.text_location.line_index != 0 || self.text_location.grapheme_index != 0 {
-            self.move_text_location(&Direction::Left);
+            self.move_text_location(Direction::Left);
             self.delete();
         }
     }
@@ -266,22 +282,17 @@ impl View {
 
     fn render_welcome_message(width: usize) -> String {
         if width == 0 {
-            return " ".to_string();
+            return String::new();
         }
 
         let welcome_msg = format!("{NAME} edit -- version {VERSION}");
         let len = welcome_msg.len();
 
-        if width <= len {
+        let remaining_width = width.saturating_sub(1);
+        if remaining_width < len {
             return "~".to_string();
         }
 
-        let padding = (width.saturating_sub(len).saturating_sub(1)) / 20;
-        let padding_str = " ".repeat(padding);
-
-        let mut full_msg = format!("~{padding_str}{welcome_msg}");
-
-        full_msg.truncate(width);
-        full_msg
+        format!("{:<1}{:^remaining_width$}", "~", welcome_msg)
     }
 }
