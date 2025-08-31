@@ -8,7 +8,7 @@ use crossterm::{Command, queue};
 use std::fmt::Display;
 use std::io::{Write, stdout};
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Eq, PartialEq)]
 pub struct Size {
     pub height: usize,
     pub width: usize,

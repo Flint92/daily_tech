@@ -1,6 +1,6 @@
 use crate::edit::fileinfo::FileInfo;
 use crate::edit::line::Line;
-use crate::edit::view::Location;
+use crate::component::view::Location;
 use std::io::Write;
 
 #[derive(Default)]
